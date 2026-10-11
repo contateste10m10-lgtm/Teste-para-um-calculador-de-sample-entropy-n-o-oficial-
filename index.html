@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1020">
+  <meta name="description" content="Analisador local de curvas de luz multibanda: Sample Entropy, visualização temporal e comparação de oito bandas de energia.">
+  <title>Multiband Entropy Lab — Sample Entropy e variabilidade</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#top" aria-label="Multiband Entropy Lab início">
+        <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
+        <span><strong>MULTIBAND</strong><small>ENTROPY LAB</small></span>
+      </a>
+      <div class="topbar-right"><span class="status-dot"></span><span>processamento local</span><a href="https://swift.gsfc.nasa.gov/results/bs157mon/" target="_blank" rel="noopener noreferrer">Dados Swift-BAT ↗</a></div>
+    </header>
+
+    <main id="top">
+      <section class="hero">
+        <div class="hero-copy">
+          <div class="eyebrow"><span>ASTROFÍSICA DE VARIABILIDADE</span><i></i><span>VERSÃO 0.6</span></div>
+          <h1>O ritmo oculto<br>das <em>curvas de luz.</em></h1>
+          <p>Explore como a irregularidade temporal muda entre bandas de energia. Importe uma curva multibanda, calcule Sample Entropy e compare as oito bandas em um único espaço de trabalho.</p>
+          <div class="hero-tags"><span>01 / importar</span><span>02 / calcular</span><span>03 / comparar</span></div>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <div class="orbit orbit-a"></div><div class="orbit orbit-b"></div><div class="orbit orbit-c"></div>
+          <div class="core-star">✦</div>
+          <svg class="signal-svg" viewBox="0 0 330 120" fill="none"><path d="M4 78 L24 78 L32 61 L41 91 L54 18 L69 101 L80 68 L93 74 L105 50 L116 84 L130 84 L141 34 L153 95 L168 70 L181 72 L194 55 L207 81 L219 81 L232 39 L244 96 L256 67 L269 75 L283 51 L294 81 L309 78 L326 78" stroke="url(#g)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><defs><linearGradient id="g" x1="0" y1="0" x2="330" y2="0" gradientUnits="userSpaceOnUse"><stop stop-color="#7C83FF"/><stop offset=".56" stop-color="#55D6BE"/><stop offset="1" stop-color="#F7B267"/></linearGradient></defs></svg>
+          <div class="art-caption"><span class="pulse"></span> LIGHT CURVE / 8 ENERGY BANDS</div>
+        </div>
+      </section>
+
+      <section class="workspace-grid">
+        <aside class="panel import-panel">
+          <div class="panel-heading"><div><span class="step">01</span><h2>Entrada de dados</h2></div><span class="mini-label">LOCAL</span></div>
+          <div class="import-tabs" role="tablist" aria-label="Método de importação">
+            <button class="import-tab active" id="tabBtnLocal" type="button" role="tab" aria-selected="true" aria-controls="tabLocal" data-tab="tabLocal">Arquivo local</button>
+            <button class="import-tab" id="tabBtnUrl" type="button" role="tab" aria-selected="false" aria-controls="tabUrl" data-tab="tabUrl">Colar link</button>
+            <button class="import-tab" id="tabBtnNasa" type="button" role="tab" aria-selected="false" aria-controls="tabNasa" data-tab="tabNasa">Biblioteca NASA</button>
+          </div>
+          <div id="tabLocal" class="import-tab-panel" role="tabpanel" aria-labelledby="tabBtnLocal">
+            <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Selecionar ou arrastar um arquivo">
+              <div class="upload-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 14.5v4A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5v-4"/></svg></div>
+              <strong>Solte seu arquivo aqui</strong>
+              <span>ou <u>procure no computador</u></span>
+              <small>.lc.gz · FITS · .lc · .txt · .csv · .tsv</small>
+              <input id="fileInput" type="file" accept=".gz,.lc,.fits,.fit,.fts,.txt,.csv,.tsv,.dat,application/fits,text/plain,text/csv" hidden>
+            </div>
+            <button id="demoBtn" class="button button-secondary button-full" type="button"><span class="sparkle">✦</span> Explorar dados demonstrativos</button>
+          </div>
+          <div id="tabUrl" class="import-tab-panel hidden" role="tabpanel" aria-labelledby="tabBtnUrl">
+            <div class="url-import-heading"><strong>Importar de um endereço</strong><span>URL direta</span></div>
+            <p class="microcopy">Cole o link direto para um arquivo de curva de luz, como `.lc`, `.lc.gz`, `.fits`, `.csv` ou `.txt`.</p>
+            <label class="field url-field"><span>Link do arquivo</span><input id="directUrlInput" type="url" inputmode="url" placeholder="https://.../curva.lc.gz" autocomplete="url"></label>
+            <div class="url-actions">
+              <button id="loadUrlBtn" class="button button-primary" type="button">Tentar importar <span class="button-arrow">↗</span></button>
+              <a id="openDirectLink" class="button button-secondary disabled-link" href="#" rel="noopener noreferrer" aria-disabled="true" download>Baixar arquivo ↓</a>
+            </div>
+            <p id="urlHelp" class="microcopy" aria-live="polite">Alguns servidores bloqueiam a importação direta por CORS. Nesse caso, abra o link, baixe o arquivo e use a aba “Arquivo local”.</p>
+          </div>
+          <div id="tabNasa" class="import-tab-panel hidden" role="tabpanel" aria-labelledby="tabBtnNasa">
+            <div class="divider-label"><span>SWIFT-BAT · EXEMPLO</span></div>
+            <a class="source-link" href="https://swift.gsfc.nasa.gov/bat_survey/bs157mon/8band_snapshot_lc/BAT_157m_eight_band_snapshot_SWIFT_J0010.5%2B1057.lc.gz" target="_blank" rel="noopener noreferrer"><span class="source-icon">↗</span><span><strong>Swift-BAT · exemplo de 8 bandas</strong><small>SWIFT J0010.5+1057 / Mrk 1501</small></span><span class="arrow">→</span></a>
+            <div class="nasa-library" aria-labelledby="nasaLibraryTitle">
+              <div class="subsection-title"><span id="nasaLibraryTitle">Biblioteca NASA / Swift-BAT</span><span class="hint">157 meses</span></div>
+              <p class="microcopy">Digite o nome Swift da fonte para gerar o link oficial da curva snapshot de oito bandas.</p>
+              <label class="field"><span>Nome Swift da fonte</span><input id="nasaSourceName" type="text" value="SWIFT J0010.5+1057" placeholder="Ex.: SWIFT J0010.5+1057"></label>
+              <button id="nasaPrepareBtn" class="button button-secondary button-full" type="button">Preparar link da curva NASA ↗</button>
+              <a id="nasaDownloadLink" class="source-link hidden" href="#" rel="noopener noreferrer" download><span class="source-icon">↓</span><span><strong>Baixar curva .lc.gz</strong><small id="nasaDownloadLabel">Link NASA preparado</small></span><span class="arrow">→</span></a>
+              <p id="nasaDownloadHelp" class="microcopy" aria-live="polite">O botão tenta salvar o arquivo diretamente no seu computador.</p>
+              <a class="catalog-link" href="https://swift.gsfc.nasa.gov/results/bs157mon/" target="_blank" rel="noopener noreferrer">Abrir catálogo completo de fontes NASA ↗</a>
+              <p class="microcopy">Depois de baixar o arquivo, você pode voltar à aba “Arquivo local” ou colar o link na aba “Colar link”.</p>
+            </div>
+          </div>
+          <div id="fileStatus" class="file-status" aria-live="polite">Nenhum arquivo carregado.</div>
+          <div class="privacy-note"><span class="lock-icon">▣</span><span>Seus arquivos são processados neste navegador. O site não envia seus dados para um servidor.</span></div>
+        </aside>
+
+        <section class="panel setup-panel">
+          <div class="panel-heading"><div><span class="step">02</span><h2>Configuração</h2></div><span id="dataBadge" class="mini-label">AGUARDANDO DADOS</span></div>
+          <div class="form-grid">
+            <label class="field"><span>Objeto / fonte <small>opcional</small></span><input id="sourceName" type="text" placeholder="Ex.: SWIFT J0010.5+1057" value=""></label>
+            <label class="field"><span>Instrumento <small>opcional</small></span><input id="instrumentName" type="text" placeholder="Ex.: Swift-BAT" value=""></label>
+          </div>
+          <div class="subsection-title"><span>Parâmetros de Sample Entropy</span><span class="hint" title="m é a dimensão de embedding; r é a tolerância">ⓘ</span></div>
+          <div class="form-grid params-grid">
+            <label class="field"><span>Dimensão (m)</span><select id="embedding"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option><option value="4">4</option></select></label>
+            <label class="field"><span>Tolerância (r)</span><div class="input-unit"><input id="tolerance" type="number" value="0.2" min="0.01" max="2" step="0.01"><span>× σ</span></div></label>
+          </div>
+          <p class="microcopy">Padrão inicial: m = 2 e r = 0,2σ. O desvio-padrão é calculado separadamente em cada banda.</p>
+          <div class="subsection-title"><span>Mapeamento das colunas</span><span id="mappingCount" class="mapping-count">0 colunas detectadas</span></div>
+          <p class="microcopy mapping-instructions">Confira qual coluna representa o tempo e a taxa de cada banda. A detecção automática é uma sugestão; você pode ajustá-la.</p>
+          <div id="mappingArea" class="mapping-empty">Carregue um arquivo para selecionar as colunas.</div>
+          <button id="analyzeBtn" type="button" class="button button-primary button-full" disabled><span>Calcular Sample Entropy</span><span class="button-arrow">↗</span></button>
+          <div id="analysisMessage" class="analysis-message" aria-live="polite"></div>
+        </section>
+      </section>
+
+      <section id="resultsSection" class="results-section hidden">
+        <div class="section-title-row"><div><div class="eyebrow"><span>03 / RESULTADOS</span></div><h2>Uma fonte, <em>oito assinaturas.</em></h2><p id="resultsSubtitle">Resultados por banda de energia.</p></div><div class="export-actions"><button id="downloadCsvBtn" class="button button-secondary" type="button">↓ Exportar CSV</button><button id="downloadPngBtn" class="button button-secondary" type="button">↓ Salvar gráfico</button></div></div>
+        <div class="metric-grid">
+          <article class="metric-card"><span>Bandas analisadas</span><strong id="metricBands">—</strong><small>de 8 bandas</small></article>
+          <article class="metric-card"><span>SampEn média</span><strong id="metricMean">—</strong><small>entre bandas válidas</small></article>
+          <article class="metric-card"><span>Maior irregularidade</span><strong id="metricMax">—</strong><small id="metricMaxBand">banda —</small></article>
+          <article class="metric-card"><span>Pontos válidos</span><strong id="metricPoints">—</strong><small>na série temporal selecionada</small></article>
+        </div>
+
+        <div class="chart-layout">
+          <article class="panel chart-panel entropy-panel"><div class="chart-heading"><div><span class="chart-kicker">COMPARAÇÃO ENTRE BANDAS</span><h3>Sample Entropy por energia</h3></div><span class="chart-symbol">◒</span></div><div class="chart-container entropy-chart-container"><canvas id="entropyChart" aria-label="Gráfico de Sample Entropy por banda"></canvas></div><p class="chart-footnote">Valores calculados independentemente para cada banda. Uma SampEn maior indica menor repetibilidade dos padrões, nas condições e escala de amostragem analisadas.</p></article>
+          <article class="panel summary-panel"><div class="chart-heading"><div><span class="chart-kicker">RESUMO NUMÉRICO</span><h3>Resultados por banda</h3></div><span class="chart-symbol">▤</span></div><div class="table-wrap"><table id="resultsTable"><thead><tr><th>Banda</th><th>N</th><th>σ</th><th>SampEn</th><th>Status</th></tr></thead><tbody><tr><td colspan="5" class="empty-cell">Execute a análise para preencher esta tabela.</td></tr></tbody></table></div><p class="chart-footnote">“Sem resultado” pode indicar poucos pontos ou ausência de pares correspondentes para A/B.</p></article>
+        </div>
+        <div class="lightcurves-head"><div><span class="chart-kicker">SÉRIES TEMPORAIS</span><h3>Curvas de luz individuais</h3></div><div class="toggle-row"><label class="check-label"><input id="normalizeCurves" type="checkbox"><span>Normalizar por banda (z-score)</span></label></div></div>
+        <div id="lightcurveGrid" class="lightcurve-grid"></div>
+        <div class="method-note"><div class="method-icon">i</div><div><strong>Como interpretar</strong><p id="methodNoteText">A SampEn não usa o valor absoluto do tempo entre observações; ela avalia a sequência dos pontos válidos pela ordem de amostragem. Curvas com cadência muito irregular, lacunas longas ou poucas observações exigem cautela na interpretação.</p></div></div>
+        <div class="results-footer"><span>Multiband Entropy Lab <b>·</b> análise no navegador</span><span id="generatedAt">—</span></div>
+      </section>
+
+      <section id="paperLab" class="paper-section">
+        <div class="section-title-row">
+          <div>
+            <div class="eyebrow"><span>04 / ANÁLISE DO ARTIGO</span></div>
+            <h2>Do artigo às <em>figuras.</em></h2>
+            <p>Gere gráficos científicos a partir de uma tabela individual de fontes, diretamente no navegador.</p>
+          </div>
+          <div class="export-actions">
+            <button id="downloadArticleTemplateBtn" class="button button-secondary" type="button">↓ Modelo CSV</button>
+          </div>
+        </div>
+
+        <div class="method-note paper-provenance-note">
+          <div class="method-icon">i</div>
+          <div>
+            <strong>O que é possível reproduzir com os arquivos atuais?</strong>
+            <p>O pôster contém estatísticas-resumo e imagens dos gráficos, mas não contém os 721 registros individuais do catálogo OVRO. Por isso, os gráficos abaixo de médias ± desvio-padrão são recriados a partir dos números publicados no pôster. O histograma original e a dispersão individual SampEn × índice de modulação só podem ser reconstruídos fielmente quando a tabela fonte a fonte for importada. O site não inventa pontos para preencher os gráficos.</p>
+          </div>
+        </div>
+
+        <div class="metric-grid paper-metric-grid">
+          <article class="metric-card"><span>Fontes no pôster</span><strong>721</strong><small>OVRO 40 m · 15 GHz</small></article>
+          <article class="metric-card"><span>SampEn média global</span><strong>1,263</strong><small>DP = 0,486 · mediana = 1,308</small></article>
+          <article class="metric-card"><span>Pearson reportado</span><strong>−0,725</strong><small>SampEn × modulação · N = 720</small></article>
+          <article class="metric-card"><span>Expoente reportado</span><strong>−0,50</strong><small>Relação de potência no pôster</small></article>
+        </div>
+
+        <div class="chart-layout article-summary-charts">
+          <article class="panel chart-panel">
+            <div class="chart-heading"><div><span class="chart-kicker">ESTATÍSTICAS DO PÔSTER</span><h3>SampEn média por classe</h3></div><span class="chart-symbol">↕</span></div>
+            <div class="chart-container"><canvas id="posterSampenClassChart" aria-label="Média e desvio-padrão de Sample Entropy por classe óptica, conforme o pôster"></canvas></div>
+            <p class="chart-footnote">Barras = média; hastes = ±1 desvio-padrão. Valores transcritos do pôster: FSRQ (N=511), BL Lac (N=70) e AGN (N=25). A classe “Outras” (N=115) não tem resumo de SampEn indicado nessa tabela. Não são reconstruções das distribuições individuais.</p>
+          </article>
+          <article class="panel chart-panel">
+            <div class="chart-heading"><div><span class="chart-kicker">ESTATÍSTICAS DO PÔSTER</span><h3>Índice de modulação médio por classe</h3></div><span class="chart-symbol">↕</span></div>
+            <div class="chart-container"><canvas id="posterModulationClassChart" aria-label="Média e desvio-padrão do índice de modulação intrínseco por classe, conforme o pôster"></canvas></div>
+            <p class="chart-footnote">Barras = média; hastes = ±1 desvio-padrão. O pôster informa FSRQ: 12,8 ± 8,5% e BL Lac: 17,0 ± 10,4%. Os dados individuais ainda não foram fornecidos.</p>
+          </article>
+        </div>
+
+        <article class="panel article-upload-panel">
+          <div class="panel-heading"><div><span class="step">04A</span><h2>Gerar gráficos a partir dos dados individuais</h2></div><span class="mini-label">CSV / TSV</span></div>
+          <p class="microcopy article-upload-intro">Importe uma tabela com uma linha por fonte. O site poderá gerar o histograma da SampEn, a dispersão SampEn × índice de modulação e os resumos por classe. O cálculo acontece no navegador; o arquivo não é enviado a um servidor.</p>
+          <div class="article-template-row">
+            <div>
+              <strong>Formato recomendado</strong>
+              <code>source,class,sampen,modulation_index_percent</code>
+              <p class="microcopy">Use os nomes acima ou mapeie as colunas manualmente depois de carregar o arquivo. O índice de modulação deve estar em porcentagem, por exemplo 12,8 para 12,8%.</p>
+            </div>
+            <label class="button button-primary file-pick-button" for="articleDataFile">Selecionar CSV/TSV</label>
+            <input id="articleDataFile" type="file" accept=".csv,.tsv,.txt,text/csv,text/plain" hidden>
+          </div>
+          <div id="articleMappingPanel" class="hidden article-mapping-panel">
+            <div class="subsection-title"><span>Mapeamento das colunas</span><span id="articleFileLabel" class="hint">—</span></div>
+            <div class="form-grid article-mapping-grid">
+              <label class="field"><span>Fonte / objeto</span><select id="articleSourceColumn"></select></label>
+              <label class="field"><span>Classe</span><select id="articleClassColumn"></select></label>
+              <label class="field"><span>Sample Entropy</span><select id="articleSampenColumn"></select></label>
+              <label class="field"><span>Índice de modulação (%)</span><select id="articleModulationColumn"></select></label>
+            </div>
+            <div class="article-actions">
+              <button id="analyzeArticleDataBtn" class="button button-primary" type="button">Gerar gráficos <span class="button-arrow">↗</span></button>
+              <button id="downloadArticleCleanBtn" class="button button-secondary" type="button" disabled>↓ Exportar dados válidos</button>
+            </div>
+            <p id="articleDataStatus" class="analysis-message" aria-live="polite">Confira o mapeamento antes de gerar as figuras.</p>
+          </div>
+          <p id="articleUploadEmpty" class="file-status">Nenhuma tabela individual carregada. Use o modelo CSV para organizar os dados quando estiverem disponíveis.</p>
+        </article>
+
+        <div id="articleDynamicResults" class="hidden article-dynamic-results">
+          <div class="metric-grid paper-metric-grid">
+            <article class="metric-card"><span>Linhas lidas</span><strong id="articleMetricRows">—</strong><small>registros importados</small></article>
+            <article class="metric-card"><span>SampEn válida</span><strong id="articleMetricSampen">—</strong><small>valores finitos</small></article>
+            <article class="metric-card"><span>Par válido SampEn × m</span><strong id="articleMetricPairs">—</strong><small>SampEn > 0 e m > 0</small></article>
+            <article class="metric-card"><span>Pearson</span><strong id="articleMetricPearson">—</strong><small>pares válidos, escala original</small></article>
+          </div>
+          <div class="chart-layout article-summary-charts">
+            <article class="panel chart-panel"><div class="chart-heading"><div><span class="chart-kicker">DISTRIBUIÇÃO</span><h3>Histograma da Sample Entropy</h3></div><span class="chart-symbol">▥</span></div><div class="chart-container"><canvas id="articleSampenHistogram" aria-label="Histograma gerado a partir da tabela importada"></canvas></div><p class="chart-footnote">Cada contagem representa registros individuais válidos da tabela importada.</p></article>
+            <article class="panel chart-panel"><div class="chart-heading"><div><span class="chart-kicker">RELAÇÃO ENTRE MÉTRICAS</span><h3>SampEn × índice de modulação</h3></div><span class="chart-symbol">⤴</span></div><div class="chart-container"><canvas id="articleSampenModulationScatter" aria-label="Dispersão de Sample Entropy versus índice de modulação"></canvas></div><p id="articleScatterNote" class="chart-footnote">O gráfico usa somente pares finitos e positivos; eixos logarítmicos são usados para acompanhar o formato do pôster.</p></article>
+          </div>
+          <div class="chart-layout article-summary-charts">
+            <article class="panel chart-panel"><div class="chart-heading"><div><span class="chart-kicker">COMPARAÇÃO POR CLASSE</span><h3>SampEn média ± DP</h3></div><span class="chart-symbol">↕</span></div><div class="chart-container"><canvas id="articleSampenByClass" aria-label="Média e desvio-padrão de Sample Entropy nas classes da tabela importada"></canvas></div><p class="chart-footnote">Cada classe é resumida a partir das linhas da tabela importada. São mostrados N, média e desvio-padrão na dica do gráfico.</p></article>
+            <article class="panel chart-panel"><div class="chart-heading"><div><span class="chart-kicker">COMPARAÇÃO POR CLASSE</span><h3>Modulação média ± DP</h3></div><span class="chart-symbol">↕</span></div><div class="chart-container"><canvas id="articleModulationByClass" aria-label="Média e desvio-padrão da modulação por classe"></canvas></div><p class="chart-footnote">Somente valores finitos de modulação são usados. Confirme a definição científica da coluna antes de interpretar os resultados.</p></article>
+          </div>
+          <article class="panel article-data-table-panel"><div class="chart-heading"><div><span class="chart-kicker">TABELA DE AUDITORIA</span><h3>Registros usados nos gráficos</h3></div><span id="articleValidRowsLabel" class="mini-label">—</span></div><div class="table-wrap"><table id="articleDataTable"><thead><tr><th>Fonte</th><th>Classe</th><th>SampEn</th><th>m (%)</th></tr></thead><tbody><tr><td colspan="4" class="empty-cell">Importe uma tabela para começar.</td></tr></tbody></table></div><p class="chart-footnote">A tabela mostra até 100 linhas na tela; o botão de exportação salva todos os registros limpos.</p></article>
+        </div>
+      </section>
+
+      <section class="about-grid">
+        <div><span class="eyebrow"><span>POR QUE MULTIBANDA?</span></div><h2>A irregularidade também<br>depende da <em>energia.</em></h2></div>
+        <p>O mesmo objeto pode apresentar comportamentos temporais diferentes em bandas distintas. Comparar a Sample Entropy por banda ajuda a investigar essa dependência — sem confundir bandas de energia (keV) com frequências de rádio (GHz).</p>
+        <div class="about-stat"><strong>8</strong><span>bandas de energia<br>Swift-BAT</span></div>
+      </section>
+    </main>
+
+    <footer class="footer"><a class="brand footer-brand" href="#top"><span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span><span><strong>MULTIBAND</strong><small>ENTROPY LAB</small></span></a><span>Ferramenta experimental para análise exploratória.</span><a href="https://github.com/" target="_blank" rel="noopener noreferrer">Projeto no GitHub ↗</a></footer>
+  </div>
+  <noscript><div class="noscript">Este site precisa de JavaScript ativado para importar dados, calcular a Sample Entropy e desenhar os gráficos.</div></noscript>
+</body>
+</html>
